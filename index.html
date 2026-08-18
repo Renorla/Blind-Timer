@@ -304,7 +304,7 @@
     const lv = currentLevel();
     levelBadge.textContent = 'LEVEL ' + (state.levelIndex+1);
     blindNow.textContent = lv.sb + ' / ' + lv.bb;
-    anteNow.textContent = lv.ante > 0 ? ('アンティ ' + lv.ante) : '';
+    anteNow.textContent = lv.ante > 0 ? ('Ante ' + lv.ante) : '';
     clockEl.textContent = fmt(state.secondsLeft);
 
     const nl = nextLevelObj();
