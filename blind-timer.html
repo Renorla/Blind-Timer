@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ブラインドタイマー</title>
+<style>
+  :root{
+    --felt-dark:#082a20;
+    --felt:#0b3d2e;
+    --felt-light:#144a37;
+    --gold:#d4af37;
+    --gold-dim:#8a742a;
+    --cream:#f1e6d0;
+    --red:#b33a3a;
+    --shadow:rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:
+      radial-gradient(circle at 50% -10%, var(--felt-light), var(--felt) 55%, var(--felt-dark) 100%);
+    color:var(--cream);
+    font-family:'Segoe UI', "Hiragino Sans", "Yu Gothic", sans-serif;
+    overflow-x:hidden;
+    user-select:none;
+  }
+  #app{
+    min-height:100dvh;
+    display:flex; flex-direction:column;
+    align-items:center;
+    padding:16px 14px calc(24px + env(safe-area-inset-bottom));
+    max-width:520px;
+    margin:0 auto;
+  }
+
+  /* header */
+  header{
+    width:100%; display:flex; justify-content:space-between; align-items:center;
+    margin-bottom:6px;
+  }
+  header h1{
+    font-size:14px; letter-spacing:.12em; margin:0; color:var(--gold);
+    font-weight:600; text-transform:uppercase;
+  }
+  #editBtn{
+    background:none; border:1px solid var(--gold-dim); color:var(--gold);
+    border-radius:20px; padding:6px 12px; font-size:12px; cursor:pointer;
+  }
+
+  /* chip dial timer */
+  .dial-wrap{
+    position:relative; width:100%; max-width:340px; aspect-ratio:1/1;
+    margin:18px 0 10px;
+  }
+  svg#dial{ width:100%; height:100%; display:block; transform:rotate(-90deg); }
+  .dial-track{ fill:none; stroke:rgba(241,230,208,.08); stroke-width:14; }
+  .dial-progress{ fill:none; stroke:var(--gold); stroke-width:14; stroke-linecap:round;
+    transition:stroke-dashoffset 1s linear, stroke .4s; }
+  .dial-center{
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center;
+  }
+  #levelBadge{
+    font-size:12px; letter-spacing:.15em; color:var(--gold); text-transform:uppercase;
+    background:rgba(212,175,55,.12); border:1px solid var(--gold-dim);
+    padding:3px 14px; border-radius:20px; margin-bottom:8px;
+  }
+  #clock{
+    font-variant-numeric:tabular-nums;
+    font-size:64px; font-weight:700; letter-spacing:.02em;
+    font-family:'Consolas','SFMono-Regular',monospace;
+    line-height:1;
+    text-shadow:0 2px 10px var(--shadow);
+  }
+  #clock.warn{ color:#e8b84b; }
+  #clock.danger{ color:#e05a5a; animation:pulse 1s infinite; }
+  @keyframes pulse{ 50%{opacity:.45;} }
+  #blindNow{
+    margin-top:10px; font-size:22px; font-weight:600; color:var(--cream);
+    letter-spacing:.02em;
+  }
+  #anteNow{ font-size:13px; color:rgba(241,230,208,.65); margin-top:2px; }
+
+  /* next level strip */
+  #nextStrip{
+    width:100%; display:flex; justify-content:space-between; align-items:center;
+    background:rgba(0,0,0,.2); border:1px solid rgba(212,175,55,.2);
+    border-radius:14px; padding:10px 16px; margin-top:6px; font-size:13px;
+  }
+  #nextStrip span.lbl{ color:rgba(241,230,208,.55); }
+  #nextStrip span.val{ color:var(--gold); font-weight:600; margin-left:6px; }
+
+  /* controls */
+  .controls{
+    display:flex; gap:12px; width:100%; margin-top:22px;
+  }
+  button.ctrl{
+    flex:1; border:none; border-radius:16px; padding:16px 8px;
+    font-size:15px; font-weight:700; cursor:pointer; letter-spacing:.03em;
+    box-shadow:0 4px 0 var(--shadow);
+    transition:transform .08s;
+  }
+  button.ctrl:active{ transform:translateY(3px); box-shadow:0 1px 0 var(--shadow); }
+  #playPause{ background:var(--gold); color:var(--felt-dark); flex:1.4; }
+  #prevLevel,#nextLevel{ background:var(--felt-light); color:var(--cream); border:1px solid rgba(212,175,55,.3); }
+  #resetBtn{ background:var(--felt-light); color:var(--red); border:1px solid rgba(179,58,58,.4); }
+
+  .row2{ display:flex; gap:12px; width:100%; margin-top:12px; }
+
+  /* players/avg stack quick info */
+  #infoBar{
+    display:flex; gap:10px; width:100%; margin-top:16px;
+  }
+  .infoBox{
+    flex:1; background:rgba(0,0,0,.18); border-radius:12px; padding:10px;
+    text-align:center; border:1px solid rgba(255,255,255,.06);
+  }
+  .infoBox label{ display:block; font-size:11px; color:rgba(241,230,208,.5); margin-bottom:4px; }
+  .infoBox input{
+    width:100%; background:none; border:none; color:var(--cream);
+    font-size:18px; font-weight:700; text-align:center; font-family:inherit;
+  }
+  .infoBox input:focus{ outline:none; }
+
+  /* levels table */
+  #levelsPanel{
+    width:100%; margin-top:18px; display:none;
+  }
+  #levelsPanel.show{ display:block; }
+  #levelsPanel h2{ font-size:13px; color:var(--gold); letter-spacing:.1em; text-transform:uppercase; margin:0 0 8px;}
+  .lvRow{
+    display:grid; grid-template-columns:28px 1fr 1fr 1fr 44px 30px;
+    gap:6px; align-items:center; margin-bottom:6px;
+  }
+  .lvRow .idx{ font-size:12px; color:rgba(241,230,208,.5); text-align:center; }
+  .lvRow input{
+    width:100%; background:rgba(0,0,0,.25); border:1px solid rgba(212,175,55,.25);
+    border-radius:8px; color:var(--cream); padding:7px 4px; font-size:13px; text-align:center;
+    font-family:inherit;
+  }
+  .lvRow.active input{ border-color:var(--gold); }
+  .lvRow button.del{
+    background:none; border:none; color:var(--red); font-size:18px; cursor:pointer;
+  }
+  .lvHead{
+    display:grid; grid-template-columns:28px 1fr 1fr 1fr 44px 30px;
+    gap:6px; font-size:10px; color:rgba(241,230,208,.4); margin-bottom:4px; text-align:center;
+  }
+  #addLevelBtn{
+    width:100%; margin-top:6px; padding:10px; border-radius:10px; border:1px dashed var(--gold-dim);
+    background:none; color:var(--gold); font-size:13px; cursor:pointer;
+  }
+  #panelActions{ display:flex; gap:10px; margin-top:14px; }
+  #panelActions button{
+    flex:1; padding:12px; border-radius:12px; border:none; font-size:13px; font-weight:700; cursor:pointer;
+  }
+  #saveLevelsBtn{ background:var(--gold); color:var(--felt-dark); }
+  #closePanelBtn{ background:var(--felt-light); color:var(--cream); border:1px solid rgba(255,255,255,.1); }
+
+  footer{ margin-top:20px; font-size:10px; color:rgba(241,230,208,.3); letter-spacing:.05em; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Blind Timer</h1>
+    <button id="editBtn">レベル編集</button>
+  </header>
+
+  <div class="dial-wrap">
+    <svg id="dial" viewBox="0 0 200 200">
+      <circle class="dial-track" cx="100" cy="100" r="88"/>
+      <circle class="dial-progress" id="dialProgress" cx="100" cy="100" r="88"/>
+    </svg>
+    <div class="dial-center">
+      <div id="levelBadge">LEVEL 1</div>
+      <div id="clock">10:00</div>
+      <div id="blindNow">100 / 200</div>
+      <div id="anteNow"></div>
+    </div>
+  </div>
+
+  <div id="nextStrip">
+    <div><span class="lbl">次のレベル</span> <span class="val" id="nextBlind">150 / 300</span></div>
+    <div><span class="lbl">開始まで</span> <span class="val" id="nextIn">10:00</span></div>
+  </div>
+
+  <div class="controls">
+    <button class="ctrl" id="prevLevel">◀ 前</button>
+    <button class="ctrl" id="playPause">スタート</button>
+    <button class="ctrl" id="nextLevel">次 ▶</button>
+  </div>
+  <div class="row2">
+    <button class="ctrl" id="resetBtn">リセット</button>
+  </div>
+
+  <div id="infoBar">
+    <div class="infoBox">
+      <label>参加人数</label>
+      <input type="number" id="playersInput" value="9" min="1">
+    </div>
+    <div class="infoBox">
+      <label>合計チップ</label>
+      <input type="number" id="totalChipsInput" value="45000" step="1000">
+    </div>
+    <div class="infoBox">
+      <label>平均スタック</label>
+      <div id="avgStack" style="font-size:18px;font-weight:700;padding-top:2px;">5000</div>
+    </div>
+  </div>
+
+  <div id="levelsPanel">
+    <h2>ブラインド構成</h2>
+    <div class="lvHead"><div></div><div>SB</div><div>BB</div><div>アンティ</div><div>分</div><div></div></div>
+    <div id="levelsList"></div>
+    <button id="addLevelBtn">＋ レベルを追加</button>
+    <div id="panelActions">
+      <button id="closePanelBtn">閉じる</button>
+      <button id="saveLevelsBtn">保存して反映</button>
+    </div>
+  </div>
+
+  <footer>画面をつけたままにしておくと安心だじゃ</footer>
+</div>
+
+<audio id="beep" preload="auto">
+  <source src="data:audio/wav;base64,UklGRuQGAABXQVZFZm10IBAAAAABAAEAgLsAAAB3AQACABAAZGF0YcAGAAAAAAAA//8AAAAA//8AAAAA" type="audio/wav">
+</audio>
+
+<script>
+(function(){
+  const STORAGE_KEY = 'blindTimerState_v1';
+
+  const defaultLevels = [
+    {sb:1, bb:2, ante:2, min:10},
+    {sb:2, bb:4, ante:4, min:10},
+    {sb:3, bb:6, ante:6, min:10},
+    {sb:4, bb:8, ante:8, min:10},
+    {sb:5, bb:10, ante:10, min:10},
+    {sb:10, bb:20, ante:20, min:10},
+    {sb:25, bb:50, ante:50, min:10},
+    {sb:50, bb:100, ante:100, min:60},
+  ];
+
+  let state = {
+    levels: defaultLevels,
+    levelIndex: 0,
+    secondsLeft: defaultLevels[0].min * 60,
+    running: false,
+    players: 8,
+    totalChips: 1600
+  };
+
+  // load
+  try{
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if(saved && saved.levels && saved.levels.length){
+      state = Object.assign(state, saved);
+    }
+  }catch(e){}
+
+  const clockEl = document.getElementById('clock');
+  const levelBadge = document.getElementById('levelBadge');
+  const blindNow = document.getElementById('blindNow');
+  const anteNow = document.getElementById('anteNow');
+  const nextBlind = document.getElementById('nextBlind');
+  const nextIn = document.getElementById('nextIn');
+  const playPauseBtn = document.getElementById('playPause');
+  const dialProgress = document.getElementById('dialProgress');
+  const playersInput = document.getElementById('playersInput');
+  const totalChipsInput = document.getElementById('totalChipsInput');
+  const avgStackEl = document.getElementById('avgStack');
+  const levelsPanel = document.getElementById('levelsPanel');
+  const levelsList = document.getElementById('levelsList');
+
+  const CIRC = 2 * Math.PI * 88;
+  dialProgress.style.strokeDasharray = CIRC;
+
+  let wakeLock = null;
+  async function requestWakeLock(){
+    try{
+      if('wakeLock' in navigator){
+        wakeLock = await navigator.wakeLock.request('screen');
+      }
+    }catch(e){}
+  }
+  document.addEventListener('visibilitychange', async ()=>{
+    if(state.running && document.visibilityState === 'visible'){
+      await requestWakeLock();
+    }
+  });
+
+  function fmt(sec){
+    const m = Math.floor(sec/60);
+    const s = sec%60;
+    return (m<10?'0':'')+m+':'+(s<10?'0':'')+s;
+  }
+
+  function currentLevel(){ return state.levels[state.levelIndex]; }
+  function nextLevelObj(){ return state.levels[state.levelIndex+1]; }
+
+  function render(){
+    const lv = currentLevel();
+    levelBadge.textContent = 'LEVEL ' + (state.levelIndex+1);
+    blindNow.textContent = lv.sb + ' / ' + lv.bb;
+    anteNow.textContent = lv.ante > 0 ? ('アンティ ' + lv.ante) : '';
+    clockEl.textContent = fmt(state.secondsLeft);
+
+    const nl = nextLevelObj();
+    if(nl){
+      nextBlind.textContent = nl.sb + ' / ' + nl.bb + (nl.ante>0 ? (' (A'+nl.ante+')') : '');
+    } else {
+      nextBlind.textContent = '最終レベル';
+    }
+    nextIn.textContent = fmt(state.secondsLeft);
+
+    const total = lv.min*60;
+    const ratio = total>0 ? state.secondsLeft/total : 0;
+    dialProgress.style.strokeDashoffset = CIRC * (1-ratio);
+
+    clockEl.classList.remove('warn','danger');
+    if(state.secondsLeft <= 60){ clockEl.classList.add('danger'); }
+    else if(state.secondsLeft <= 180){ clockEl.classList.add('warn'); }
+
+    playPauseBtn.textContent = state.running ? '一時停止' : (state.secondsLeft===total ? 'スタート' : '再開');
+
+    playersInput.value = state.players;
+    totalChipsInput.value = state.totalChips;
+    avgStackEl.textContent = state.players>0 ? Math.round(state.totalChips/state.players).toLocaleString() : '-';
+
+    save();
+  }
+
+  function save(){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  let timerId = null;
+  function tick(){
+    if(!state.running) return;
+    state.secondsLeft--;
+    if(state.secondsLeft <= 0){
+      playBeep();
+      if(state.levelIndex < state.levels.length-1){
+        state.levelIndex++;
+        state.secondsLeft = currentLevel().min*60;
+      } else {
+        state.secondsLeft = 0;
+        state.running = false;
+        clearInterval(timerId);
+      }
+    } else if(state.secondsLeft <= 3){
+      playBeep();
+    }
+    render();
+  }
+
+  function playBeep(){
+    try{
+      const ctx = playBeep._ctx || (playBeep._ctx = new (window.AudioContext||window.webkitAudioContext)());
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.value = 880;
+      g.gain.value = 0.15;
+      o.connect(g); g.connect(ctx.destination);
+      o.start();
+      o.stop(ctx.currentTime + 0.15);
+    }catch(e){}
+  }
+
+  playPauseBtn.addEventListener('click', ()=>{
+    state.running = !state.running;
+    if(state.running){
+      requestWakeLock();
+      timerId = setInterval(tick, 1000);
+    } else {
+      clearInterval(timerId);
+      if(wakeLock){ wakeLock.release().catch(()=>{}); wakeLock=null; }
+    }
+    render();
+  });
+
+  document.getElementById('nextLevel').addEventListener('click', ()=>{
+    if(state.levelIndex < state.levels.length-1){
+      state.levelIndex++;
+      state.secondsLeft = currentLevel().min*60;
+      render();
+    }
+  });
+  document.getElementById('prevLevel').addEventListener('click', ()=>{
+    if(state.levelIndex > 0){
+      state.levelIndex--;
+      state.secondsLeft = currentLevel().min*60;
+      render();
+    }
+  });
+  document.getElementById('resetBtn').addEventListener('click', ()=>{
+    state.running = false;
+    clearInterval(timerId);
+    state.levelIndex = 0;
+    state.secondsLeft = currentLevel().min*60;
+    render();
+  });
+
+  playersInput.addEventListener('input', ()=>{
+    state.players = parseInt(playersInput.value)||0;
+    render();
+  });
+  totalChipsInput.addEventListener('input', ()=>{
+    state.totalChips = parseInt(totalChipsInput.value)||0;
+    render();
+  });
+
+  // ---- levels editor ----
+  const editBtn = document.getElementById('editBtn');
+  const closePanelBtn = document.getElementById('closePanelBtn');
+  const saveLevelsBtn = document.getElementById('saveLevelsBtn');
+  const addLevelBtn = document.getElementById('addLevelBtn');
+
+  function buildLevelsList(){
+    levelsList.innerHTML = '';
+    state.levels.forEach((lv, i)=>{
+      const row = document.createElement('div');
+      row.className = 'lvRow' + (i===state.levelIndex ? ' active' : '');
+      row.innerHTML = `
+        <div class="idx">${i+1}</div>
+        <input type="number" data-field="sb" data-i="${i}" value="${lv.sb}">
+        <input type="number" data-field="bb" data-i="${i}" value="${lv.bb}">
+        <input type="number" data-field="ante" data-i="${i}" value="${lv.ante}">
+        <input type="number" data-field="min" data-i="${i}" value="${lv.min}">
+        <button class="del" data-i="${i}">×</button>
+      `;
+      levelsList.appendChild(row);
+    });
+  }
+
+  editBtn.addEventListener('click', ()=>{
+    buildLevelsList();
+    levelsPanel.classList.add('show');
+  });
+  closePanelBtn.addEventListener('click', ()=>{
+    levelsPanel.classList.remove('show');
+  });
+
+  levelsList.addEventListener('input', (e)=>{
+    const t = e.target;
+    if(t.tagName !== 'INPUT') return;
+    const i = parseInt(t.dataset.i);
+    const field = t.dataset.field;
+    state.levels[i][field] = parseInt(t.value)||0;
+  });
+  levelsList.addEventListener('click', (e)=>{
+    if(e.target.classList.contains('del')){
+      const i = parseInt(e.target.dataset.i);
+      if(state.levels.length <= 1) return;
+      state.levels.splice(i,1);
+      if(state.levelIndex >= state.levels.length) state.levelIndex = state.levels.length-1;
+      buildLevelsList();
+    }
+  });
+  addLevelBtn.addEventListener('click', ()=>{
+    const last = state.levels[state.levels.length-1];
+    state.levels.push({sb:last.bb, bb:last.bb*2, ante:last.ante, min:last.min});
+    buildLevelsList();
+  });
+  saveLevelsBtn.addEventListener('click', ()=>{
+    state.secondsLeft = currentLevel().min*60;
+    state.running = false;
+    clearInterval(timerId);
+    levelsPanel.classList.remove('show');
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
