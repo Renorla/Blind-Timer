@@ -84,12 +84,15 @@
 
   /* next level strip */
   #nextStrip{
-    width:100%; display:flex; justify-content:space-between; align-items:center;
+    width:100%; display:flex; justify-content:center; align-items:center;
     background:rgba(0,0,0,.2); border:1px solid rgba(212,175,55,.2);
     border-radius:14px; padding:10px 16px; margin-top:6px; font-size:13px;
   }
   #nextStrip span.lbl{ color:rgba(241,230,208,.55); }
-  #nextStrip span.val{ color:var(--gold); font-weight:600; margin-left:6px; }
+  #nextStrip span.val{
+    color:var(--gold); font-weight:700; margin-left:10px; font-size:16px;
+    font-variant-numeric:tabular-nums; letter-spacing:.02em;
+  }
 
   /* controls */
   .controls{
@@ -122,6 +125,22 @@
     font-size:18px; font-weight:700; text-align:center; font-family:inherit;
   }
   .infoBox input:focus{ outline:none; }
+  .infoBox input[type=number]::-webkit-outer-spin-button,
+  .infoBox input[type=number]::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+  .infoBox input[type=number]{ -moz-appearance:textfield; }
+
+  /* stepper (参加人数) */
+  .stepper{ display:flex; align-items:center; justify-content:space-between; gap:2px; }
+  .stepBtn{
+    flex:0 0 30px; height:30px; border-radius:8px;
+    background:rgba(212,175,55,.10); border:1px solid rgba(212,175,55,.35);
+    color:var(--gold); font-size:14px; line-height:1; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    transition:transform .08s, background .15s;
+  }
+  .stepBtn:active{ transform:scale(.9); background:rgba(212,175,55,.28); }
+  .stepBtn:disabled{ opacity:.28; cursor:default; }
+  .stepper input{ flex:1 1 auto; min-width:0; }
 
   /* levels table */
   #levelsPanel{
@@ -138,6 +157,10 @@
     width:100%; background:rgba(0,0,0,.25); border:1px solid rgba(212,175,55,.25);
     border-radius:8px; color:var(--cream); padding:7px 4px; font-size:13px; text-align:center;
     font-family:inherit;
+  }
+  .lvRow input.ante{
+    background:rgba(0,0,0,.12); border-style:dashed;
+    color:rgba(241,230,208,.6); pointer-events:none;
   }
   .lvRow.active input{ border-color:var(--gold); }
   .lvRow button.del{
@@ -157,6 +180,7 @@
   }
   #saveLevelsBtn{ background:var(--gold); color:var(--felt-dark); }
   #closePanelBtn{ background:var(--felt-light); color:var(--cream); border:1px solid rgba(255,255,255,.1); }
+  .note{ font-size:10px; color:rgba(241,230,208,.35); margin:2px 0 10px; }
 
   footer{ margin-top:20px; font-size:10px; color:rgba(241,230,208,.3); letter-spacing:.05em; }
 </style>
@@ -176,14 +200,14 @@
     <div class="dial-center">
       <div id="levelBadge">LEVEL 1</div>
       <div id="clock">10:00</div>
-      <div id="blindNow">100 / 200</div>
-      <div id="anteNow"></div>
+      <div id="blindNow">1 / 2</div>
+      <div id="anteNow">Ante 2</div>
     </div>
   </div>
 
+  <!-- 「開始まで」を削除し、次レベルのみ表示 -->
   <div id="nextStrip">
-    <div><span class="lbl">次のレベル</span> <span class="val" id="nextBlind">150 / 300</span></div>
-    <div><span class="lbl">開始まで</span> <span class="val" id="nextIn">10:00</span></div>
+    <div><span class="lbl">次のレベル</span><span class="val" id="nextBlind">2/4/4</span></div>
   </div>
 
   <div class="controls">
@@ -198,22 +222,27 @@
   <div id="infoBar">
     <div class="infoBox">
       <label>参加人数</label>
-      <input type="number" id="playersInput" value="9" min="1">
+      <div class="stepper">
+        <button class="stepBtn" id="playersMinus" aria-label="人数を減らす">◀</button>
+        <input type="number" id="playersInput" value="8" min="1" inputmode="numeric">
+        <button class="stepBtn" id="playersPlus" aria-label="人数を増やす">▶</button>
+      </div>
     </div>
     <div class="infoBox">
       <label>合計チップ</label>
-      <input type="number" id="totalChipsInput" value="45000" step="1000">
+      <input type="number" id="totalChipsInput" value="1600" step="100" inputmode="numeric">
     </div>
     <div class="infoBox">
       <label>平均スタック</label>
-      <div id="avgStack" style="font-size:18px;font-weight:700;padding-top:2px;">5000</div>
+      <div id="avgStack" style="font-size:18px;font-weight:700;padding-top:2px;">200</div>
     </div>
   </div>
 
   <div id="levelsPanel">
     <h2>ブラインド構成</h2>
-    <div class="lvHead"><div></div><div>SB</div><div>BB</div><div>アンティ</div><div>分</div><div></div></div>
+    <div class="lvHead"><div></div><div>SB</div><div>BB</div><div>Ante</div><div>分</div><div></div></div>
     <div id="levelsList"></div>
+    <p class="note">※ Ante は BB と同額で自動設定されます</p>
     <button id="addLevelBtn">＋ レベルを追加</button>
     <div id="panelActions">
       <button id="closePanelBtn">閉じる</button>
@@ -224,27 +253,23 @@
   <footer>画面をつけたままにしておくと安心だじゃ</footer>
 </div>
 
-<audio id="beep" preload="auto">
-  <source src="data:audio/wav;base64,UklGRuQGAABXQVZFZm10IBAAAAABAAEAgLsAAAB3AQACABAAZGF0YcAGAAAAAAAA//8AAAAA//8AAAAA" type="audio/wav">
-</audio>
-
 <script>
 (function(){
   const STORAGE_KEY = 'blindTimerState_v1';
 
   const defaultLevels = [
-    {sb:1, bb:2, ante:2, min:10},
-    {sb:2, bb:4, ante:4, min:10},
-    {sb:3, bb:6, ante:6, min:10},
-    {sb:4, bb:8, ante:8, min:10},
-    {sb:5, bb:10, ante:10, min:10},
-    {sb:10, bb:20, ante:20, min:10},
-    {sb:25, bb:50, ante:50, min:10},
+    {sb:1,  bb:2,   ante:2,   min:10},
+    {sb:2,  bb:4,   ante:4,   min:10},
+    {sb:3,  bb:6,   ante:6,   min:10},
+    {sb:4,  bb:8,   ante:8,   min:10},
+    {sb:5,  bb:10,  ante:10,  min:10},
+    {sb:10, bb:20,  ante:20,  min:10},
+    {sb:25, bb:50,  ante:50,  min:10},
     {sb:50, bb:100, ante:100, min:60},
   ];
 
   let state = {
-    levels: defaultLevels,
+    levels: defaultLevels.map(l => Object.assign({}, l)),
     levelIndex: 0,
     secondsLeft: defaultLevels[0].min * 60,
     running: false,
@@ -252,7 +277,7 @@
     totalChips: 1600
   };
 
-  // load
+  // ---- load ----
   try{
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if(saved && saved.levels && saved.levels.length){
@@ -260,221 +285,260 @@
     }
   }catch(e){}
 
-  const clockEl = document.getElementById('clock');
-  const levelBadge = document.getElementById('levelBadge');
-  const blindNow = document.getElementById('blindNow');
-  const anteNow = document.getElementById('anteNow');
-  const nextBlind = document.getElementById('nextBlind');
-  const nextIn = document.getElementById('nextIn');
-  const playPauseBtn = document.getElementById('playPause');
-  const dialProgress = document.getElementById('dialProgress');
-  const playersInput = document.getElementById('playersInput');
-  const totalChipsInput = document.getElementById('totalChipsInput');
-  const avgStackEl = document.getElementById('avgStack');
-  const levelsPanel = document.getElementById('levelsPanel');
-  const levelsList = document.getElementById('levelsList');
+  // Ante は常に BB と同額に正規化
+  function normalizeLevels(){
+    state.levels = state.levels.map(l => {
+      const bb = Math.max(0, Number(l.bb) || 0);
+      return {
+        sb:  Math.max(0, Number(l.sb) || 0),
+        bb:  bb,
+        ante: bb,
+        min: Math.max(1, Number(l.min) || 1)
+      };
+    });
+    if(!state.levels.length) state.levels = defaultLevels.map(l => Object.assign({}, l));
+    state.levelIndex = Math.min(Math.max(0, state.levelIndex|0), state.levels.length - 1);
+  }
+  normalizeLevels();
+  state.running = false;
+  if(!(state.secondsLeft > 0)) state.secondsLeft = state.levels[state.levelIndex].min * 60;
 
-  const CIRC = 2 * Math.PI * 88;
-  dialProgress.style.strokeDasharray = CIRC;
+  // ---- elements ----
+  const clockEl        = document.getElementById('clock');
+  const levelBadge     = document.getElementById('levelBadge');
+  const blindNow       = document.getElementById('blindNow');
+  const anteNow        = document.getElementById('anteNow');
+  const nextBlind      = document.getElementById('nextBlind');
+  const playPauseBtn   = document.getElementById('playPause');
+  const prevLevelBtn   = document.getElementById('prevLevel');
+  const nextLevelBtn   = document.getElementById('nextLevel');
+  const resetBtn       = document.getElementById('resetBtn');
+  const dialProgress   = document.getElementById('dialProgress');
+  const playersInput   = document.getElementById('playersInput');
+  const playersMinus   = document.getElementById('playersMinus');
+  const playersPlus    = document.getElementById('playersPlus');
+  const totalChipsInput= document.getElementById('totalChipsInput');
+  const avgStackEl     = document.getElementById('avgStack');
+  const levelsPanel    = document.getElementById('levelsPanel');
+  const levelsList     = document.getElementById('levelsList');
+  const editBtn        = document.getElementById('editBtn');
+  const addLevelBtn    = document.getElementById('addLevelBtn');
+  const saveLevelsBtn  = document.getElementById('saveLevelsBtn');
+  const closePanelBtn  = document.getElementById('closePanelBtn');
 
-  let wakeLock = null;
-  async function requestWakeLock(){
+  const R = 88, CIRC = 2 * Math.PI * R;
+  dialProgress.style.strokeDasharray = CIRC.toFixed(2);
+
+  // ---- utils ----
+  const fmt = s => {
+    s = Math.max(0, Math.floor(s));
+    const m = Math.floor(s / 60), sec = s % 60;
+    return String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0');
+  };
+  const cur  = () => state.levels[state.levelIndex];
+  const next = () => state.levels[state.levelIndex + 1] || null;
+
+  function save(){
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
+  }
+
+  // ---- beep (WebAudio) ----
+  let actx = null;
+  function beep(times){
     try{
-      if('wakeLock' in navigator){
-        wakeLock = await navigator.wakeLock.request('screen');
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      if(actx.state === 'suspended') actx.resume();
+      for(let i = 0; i < (times || 1); i++){
+        const t = actx.currentTime + i * 0.28;
+        const osc = actx.createOscillator(), g = actx.createGain();
+        osc.type = 'sine'; osc.frequency.value = 880;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.35, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+        osc.connect(g).connect(actx.destination);
+        osc.start(t); osc.stop(t + 0.24);
       }
     }catch(e){}
   }
-  document.addEventListener('visibilitychange', async ()=>{
-    if(state.running && document.visibilityState === 'visible'){
-      await requestWakeLock();
-    }
-  });
 
-  function fmt(sec){
-    const m = Math.floor(sec/60);
-    const s = sec%60;
-    return (m<10?'0':'')+m+':'+(s<10?'0':'')+s;
-  }
-
-  function currentLevel(){ return state.levels[state.levelIndex]; }
-  function nextLevelObj(){ return state.levels[state.levelIndex+1]; }
-
+  // ---- render ----
   function render(){
-    const lv = currentLevel();
-    levelBadge.textContent = 'LEVEL ' + (state.levelIndex+1);
-    blindNow.textContent = lv.sb + ' / ' + lv.bb;
-    anteNow.textContent = lv.ante > 0 ? ('Ante ' + lv.ante) : '';
+    const c = cur(), n = next();
+
+    levelBadge.textContent = 'LEVEL ' + (state.levelIndex + 1);
     clockEl.textContent = fmt(state.secondsLeft);
+    blindNow.textContent = c.sb + ' / ' + c.bb;
+    anteNow.textContent = 'Ante ' + c.ante;
 
-    const nl = nextLevelObj();
-    if(nl){
-      nextBlind.textContent = nl.sb + ' / ' + nl.bb + (nl.ante>0 ? (' (A'+nl.ante+')') : '');
-    } else {
-      nextBlind.textContent = '最終レベル';
-    }
-    nextIn.textContent = fmt(state.secondsLeft);
+    // 次のレベル: 00/00/00 （SB/BB/Ante）
+    nextBlind.textContent = n ? (n.sb + '/' + n.bb + '/' + n.ante) : '—';
 
-    const total = lv.min*60;
-    const ratio = total>0 ? state.secondsLeft/total : 0;
-    dialProgress.style.strokeDashoffset = CIRC * (1-ratio);
+    clockEl.classList.toggle('warn',   state.secondsLeft <= 60 && state.secondsLeft > 10);
+    clockEl.classList.toggle('danger', state.secondsLeft <= 10);
 
-    clockEl.classList.remove('warn','danger');
-    if(state.secondsLeft <= 60){ clockEl.classList.add('danger'); }
-    else if(state.secondsLeft <= 180){ clockEl.classList.add('warn'); }
+    const total = c.min * 60;
+    const ratio = total > 0 ? Math.max(0, Math.min(1, state.secondsLeft / total)) : 0;
+    dialProgress.style.strokeDashoffset = (CIRC * (1 - ratio)).toFixed(2);
+    dialProgress.style.stroke =
+      state.secondsLeft <= 10 ? '#e05a5a' :
+      state.secondsLeft <= 60 ? '#e8b84b' : 'var(--gold)';
 
-    playPauseBtn.textContent = state.running ? '一時停止' : (state.secondsLeft===total ? 'スタート' : '再開');
+    playPauseBtn.textContent = state.running ? '一時停止' : 'スタート';
+    prevLevelBtn.disabled = state.levelIndex === 0;
+    nextLevelBtn.disabled = !n;
 
-    playersInput.value = state.players;
-    totalChipsInput.value = state.totalChips;
-    avgStackEl.textContent = state.players>0 ? Math.round(state.totalChips/state.players).toLocaleString() : '-';
-
-    save();
+    renderInfo();
   }
 
-  function save(){
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  function renderInfo(){
+    const p = Math.max(1, Number(state.players) || 1);
+    const t = Math.max(0, Number(state.totalChips) || 0);
+    avgStackEl.textContent = Math.round(t / p).toLocaleString();
+    playersMinus.disabled = p <= 1;
   }
 
-  let timerId = null;
+  // ---- timer ----
+  let ticker = null;
   function tick(){
     if(!state.running) return;
     state.secondsLeft--;
+    if(state.secondsLeft <= 3 && state.secondsLeft > 0) beep(1);
     if(state.secondsLeft <= 0){
-      playBeep();
-      if(state.levelIndex < state.levels.length-1){
+      if(next()){
         state.levelIndex++;
-        state.secondsLeft = currentLevel().min*60;
-      } else {
+        state.secondsLeft = cur().min * 60;
+        beep(2);
+      }else{
         state.secondsLeft = 0;
         state.running = false;
-        clearInterval(timerId);
+        beep(3);
       }
-    } else if(state.secondsLeft <= 3){
-      playBeep();
     }
+    save();
     render();
   }
-
-  function playBeep(){
-    try{
-      const ctx = playBeep._ctx || (playBeep._ctx = new (window.AudioContext||window.webkitAudioContext)());
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      o.type = 'sine';
-      o.frequency.value = 880;
-      g.gain.value = 0.15;
-      o.connect(g); g.connect(ctx.destination);
-      o.start();
-      o.stop(ctx.currentTime + 0.15);
-    }catch(e){}
+  function startTicker(){
+    clearInterval(ticker);
+    ticker = setInterval(tick, 1000);
   }
+  startTicker();
 
-  playPauseBtn.addEventListener('click', ()=>{
+  playPauseBtn.addEventListener('click', () => {
+    if(state.secondsLeft <= 0 && !next()) return;
     state.running = !state.running;
-    if(state.running){
-      requestWakeLock();
-      timerId = setInterval(tick, 1000);
-    } else {
-      clearInterval(timerId);
-      if(wakeLock){ wakeLock.release().catch(()=>{}); wakeLock=null; }
-    }
-    render();
+    if(state.running) beep(1);
+    save(); render();
   });
 
-  document.getElementById('nextLevel').addEventListener('click', ()=>{
-    if(state.levelIndex < state.levels.length-1){
-      state.levelIndex++;
-      state.secondsLeft = currentLevel().min*60;
-      render();
-    }
-  });
-  document.getElementById('prevLevel').addEventListener('click', ()=>{
-    if(state.levelIndex > 0){
-      state.levelIndex--;
-      state.secondsLeft = currentLevel().min*60;
-      render();
-    }
-  });
-  document.getElementById('resetBtn').addEventListener('click', ()=>{
+  function goLevel(i){
+    if(i < 0 || i >= state.levels.length) return;
+    state.levelIndex = i;
+    state.secondsLeft = cur().min * 60;
+    save(); render();
+  }
+  prevLevelBtn.addEventListener('click', () => goLevel(state.levelIndex - 1));
+  nextLevelBtn.addEventListener('click', () => goLevel(state.levelIndex + 1));
+
+  resetBtn.addEventListener('click', () => {
     state.running = false;
-    clearInterval(timerId);
-    state.levelIndex = 0;
-    state.secondsLeft = currentLevel().min*60;
-    render();
+    state.secondsLeft = cur().min * 60;
+    save(); render();
   });
 
-  playersInput.addEventListener('input', ()=>{
-    state.players = parseInt(playersInput.value)||0;
-    render();
+  // ---- 参加人数：矢印タップ／長押し ----
+  function changePlayers(delta){
+    const v = Math.max(1, (Number(state.players) || 1) + delta);
+    state.players = v;
+    playersInput.value = v;
+    save(); renderInfo();
+  }
+  function bindHold(btn, delta){
+    let to = null, iv = null;
+    const stop = () => { clearTimeout(to); clearInterval(iv); to = iv = null; };
+    btn.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      if(btn.disabled) return;
+      changePlayers(delta);
+      to = setTimeout(() => { iv = setInterval(() => changePlayers(delta), 100); }, 450);
+    });
+    ['pointerup','pointerleave','pointercancel'].forEach(ev => btn.addEventListener(ev, stop));
+  }
+  bindHold(playersMinus, -1);
+  bindHold(playersPlus,  +1);
+
+  playersInput.addEventListener('input', () => {
+    state.players = Math.max(1, Number(playersInput.value) || 1);
+    save(); renderInfo();
   });
-  totalChipsInput.addEventListener('input', ()=>{
-    state.totalChips = parseInt(totalChipsInput.value)||0;
-    render();
+  playersInput.addEventListener('blur', () => { playersInput.value = state.players; });
+
+  totalChipsInput.addEventListener('input', () => {
+    state.totalChips = Math.max(0, Number(totalChipsInput.value) || 0);
+    save(); renderInfo();
   });
 
   // ---- levels editor ----
-  const editBtn = document.getElementById('editBtn');
-  const closePanelBtn = document.getElementById('closePanelBtn');
-  const saveLevelsBtn = document.getElementById('saveLevelsBtn');
-  const addLevelBtn = document.getElementById('addLevelBtn');
-
-  function buildLevelsList(){
+  function renderLevels(){
     levelsList.innerHTML = '';
-    state.levels.forEach((lv, i)=>{
+    state.levels.forEach((l, i) => {
       const row = document.createElement('div');
-      row.className = 'lvRow' + (i===state.levelIndex ? ' active' : '');
-      row.innerHTML = `
-        <div class="idx">${i+1}</div>
-        <input type="number" data-field="sb" data-i="${i}" value="${lv.sb}">
-        <input type="number" data-field="bb" data-i="${i}" value="${lv.bb}">
-        <input type="number" data-field="ante" data-i="${i}" value="${lv.ante}">
-        <input type="number" data-field="min" data-i="${i}" value="${lv.min}">
-        <button class="del" data-i="${i}">×</button>
-      `;
+      row.className = 'lvRow' + (i === state.levelIndex ? ' active' : '');
+      row.innerHTML =
+        '<div class="idx">' + (i + 1) + '</div>' +
+        '<input type="number" class="sb"   value="' + l.sb  + '" min="0" inputmode="numeric">' +
+        '<input type="number" class="bb"   value="' + l.bb  + '" min="0" inputmode="numeric">' +
+        '<input type="number" class="ante" value="' + l.ante + '" readonly tabindex="-1">' +
+        '<input type="number" class="min"  value="' + l.min + '" min="1" inputmode="numeric">' +
+        '<button class="del" aria-label="削除">×</button>';
+
+      // BB を変えたら Ante を追従
+      const bbEl = row.querySelector('.bb');
+      const anteEl = row.querySelector('.ante');
+      bbEl.addEventListener('input', () => { anteEl.value = Math.max(0, Number(bbEl.value) || 0); });
+
+      row.querySelector('.del').addEventListener('click', () => {
+        if(state.levels.length <= 1) return;
+        collect();
+        state.levels.splice(i, 1);
+        if(state.levelIndex >= state.levels.length) state.levelIndex = state.levels.length - 1;
+        renderLevels();
+      });
+
       levelsList.appendChild(row);
     });
   }
 
-  editBtn.addEventListener('click', ()=>{
-    buildLevelsList();
-    levelsPanel.classList.add('show');
-  });
-  closePanelBtn.addEventListener('click', ()=>{
-    levelsPanel.classList.remove('show');
+  // 画面上の入力値を state に取り込む（Ante は BB に強制同期）
+  function collect(){
+    const rows = levelsList.querySelectorAll('.lvRow');
+    const arr = [];
+    rows.forEach(r => {
+      const bb = Math.max(0, Number(r.querySelector('.bb').value) || 0);
+      arr.push({
+        sb:  Math.max(0, Number(r.querySelector('.sb').value) || 0),
+        bb:  bb,
+        ante: bb,
+        min: Math.max(1, Number(r.querySelector('.min').value) || 1)
+      });
+    });
+    if(arr.length) state.levels = arr;
+  }
+
+  editBtn.addEventListener('click', () => {
+    const show = !levelsPanel.classList.contains('show');
+    levelsPanel.classList.toggle('show', show);
+    if(show){ renderLevels(); levelsPanel.scrollIntoView({behavior:'smooth', block:'start'}); }
   });
 
-  levelsList.addEventListener('input', (e)=>{
-    const t = e.target;
-    if(t.tagName !== 'INPUT') return;
-    const i = parseInt(t.dataset.i);
-    const field = t.dataset.field;
-    state.levels[i][field] = parseInt(t.value)||0;
-  });
-  levelsList.addEventListener('click', (e)=>{
-    if(e.target.classList.contains('del')){
-      const i = parseInt(e.target.dataset.i);
-      if(state.levels.length <= 1) return;
-      state.levels.splice(i,1);
-      if(state.levelIndex >= state.levels.length) state.levelIndex = state.levels.length-1;
-      buildLevelsList();
-    }
-  });
-  addLevelBtn.addEventListener('click', ()=>{
-    const last = state.levels[state.levels.length-1];
-    state.levels.push({sb:last.bb, bb:last.bb*2, ante:last.ante, min:last.min});
-    buildLevelsList();
-  });
-  saveLevelsBtn.addEventListener('click', ()=>{
-    state.secondsLeft = currentLevel().min*60;
-    state.running = false;
-    clearInterval(timerId);
-    levelsPanel.classList.remove('show');
-    render();
+  addLevelBtn.addEventListener('click', () => {
+    collect();
+    const last = state.levels[state.levels.length - 1];
+    const bb = last.bb * 2;
+    state.levels.push({sb: last.bb, bb: bb, ante: bb, min: last.min});
+    renderLevels();
   });
 
-  render();
-})();
-</script>
-</body>
-</html>
+  saveLevelsBtn.addEventListener('click', () => {
+    collect();
+    normalizeLevels();
+    if(state.secondsLeft > cur().
